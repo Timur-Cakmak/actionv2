@@ -20,30 +20,69 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Install PostgreSQL client
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client curl
+
+    - name: Wait for PostgreSQL to be ready
+      shell: bash
+      run: |
+        echo "Waiting for PostgreSQL to be ready..."
+        for i in {1..30}; do
+          if PGPASSWORD=${{ inputs.postgres-password }} pg_isready \
+            -h localhost \
+            -p 5432 \
+            -U ${{ inputs.postgres-username }}; then
+            echo "PostgreSQL is ready"
+            break
+          fi
+          echo "Waiting for PostgreSQL... Attempt $i/30"
+          sleep 2
+        done
+
     - name: Test PostgreSQL Connection
       shell: bash
       run: |
-        PGPASSWORD=${{ inputs.postgres-password }} psql \
+        echo "Testing PostgreSQL connection..."
+        if PGPASSWORD=${{ inputs.postgres-password }} psql \
           -h localhost \
           -p 5432 \
           -U ${{ inputs.postgres-username }} \
           -d ${{ inputs.postgres-db }} \
-          -c "SELECT version();"
-        
-        if [ $? -eq 0 ]; then
+          -c "SELECT version();" > /dev/null 2>&1; then
           echo "PostgreSQL connection successful"
         else
           echo "PostgreSQL connection failed"
+          echo "Checking PostgreSQL logs:"
+          docker logs postgres-container
           exit 1
         fi
+
+    - name: Wait for Keycloak to be ready
+      shell: bash
+      run: |
+        echo "Waiting for Keycloak to be ready..."
+        for i in {1..30}; do
+          if curl -s -f -o /dev/null http://localhost:8080/auth/health/ready; then
+            echo "Keycloak is ready"
+            break
+          fi
+          echo "Waiting for Keycloak... Attempt $i/30"
+          sleep 2
+        done
 
     - name: Test Keycloak Health
       shell: bash
       run: |
+        echo "Testing Keycloak health..."
         response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/auth/health/ready)
         if [ "$response" = "200" ]; then
           echo "Keycloak is healthy"
         else
-          echo "Keycloak health check failed"
+          echo "Keycloak health check failed (HTTP $response)"
+          echo "Checking Keycloak logs:"
+          docker logs keycloak-container
           exit 1
         fi
