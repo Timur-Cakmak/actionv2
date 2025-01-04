@@ -1,0 +1,51 @@
+# .github/actions/manage-services/action.yml
+name: 'Manage Services'
+description: 'Starts and monitors Docker Compose services'
+runs:
+  using: "composite"
+  steps:
+    - name: Install Docker Compose
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker-compose
+
+    - name: Start Services
+      shell: bash
+      run: |
+        docker-compose down -v
+        docker-compose build --no-cache
+        docker-compose up -d
+
+    - name: Wait for Services
+      shell: bash
+      run: |
+        echo "Waiting for services to be ready..."
+        attempts=0
+        max_attempts=30
+        
+        while [ $attempts -lt $max_attempts ]; do
+          if docker-compose ps | grep -q "Exit"; then
+            echo "One or more services failed to start:"
+            docker-compose ps
+            docker-compose logs
+            exit 1
+          fi
+        
+          if docker-compose ps | grep -q "healthy"; then
+            echo "Services are ready!"
+            break
+          fi
+        
+          attempts=$((attempts + 1))
+          echo "Waiting... Attempt $attempts/$max_attempts"
+          docker-compose logs --tail=50
+          sleep 10
+        done
+        
+        if [ $attempts -eq $max_attempts ]; then
+          echo "Services failed to become healthy within timeout:"
+          docker-compose ps
+          docker-compose logs
+          exit 1
+        fi

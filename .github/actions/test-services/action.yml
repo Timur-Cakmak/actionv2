@@ -1,0 +1,49 @@
+# .github/actions/test-services/action.yml
+name: 'Test Services'
+description: 'Tests if PostgreSQL and Keycloak services are running correctly'
+inputs:
+  postgres-username:
+    description: 'PostgreSQL username for connection test'
+    required: true
+  postgres-password:
+    description: 'PostgreSQL password for connection test'
+    required: true
+  postgres-db:
+    description: 'PostgreSQL database name for connection test'
+    required: true
+  keycloak-admin:
+    description: 'Keycloak admin username for connection test'
+    required: true
+  keycloak-admin-password:
+    description: 'Keycloak admin password for connection test'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Test PostgreSQL Connection
+      shell: bash
+      run: |
+        PGPASSWORD=${{ inputs.postgres-password }} psql \
+          -h localhost \
+          -p 5432 \
+          -U ${{ inputs.postgres-username }} \
+          -d ${{ inputs.postgres-db }} \
+          -c "SELECT version();"
+        
+        if [ $? -eq 0 ]; then
+          echo "PostgreSQL connection successful"
+        else
+          echo "PostgreSQL connection failed"
+          exit 1
+        fi
+
+    - name: Test Keycloak Health
+      shell: bash
+      run: |
+        response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/auth/health/ready)
+        if [ "$response" = "200" ]; then
+          echo "Keycloak is healthy"
+        else
+          echo "Keycloak health check failed"
+          exit 1
+        fi

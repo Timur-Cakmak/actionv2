@@ -1,0 +1,99 @@
+# .github/actions/create-docker-compose/action.yml
+name: 'Create Docker Compose Configuration'
+description: 'Creates the Docker Compose configuration file'
+inputs:
+  postgres-username:
+    description: 'PostgreSQL database username'
+    required: true
+  postgres-password:
+    description: 'PostgreSQL database password'
+    required: true
+  postgres-db:
+    description: 'PostgreSQL database name'
+    required: true
+  keycloak-admin:
+    description: 'Keycloak administrator username'
+    required: true
+  keycloak-admin-password:
+    description: 'Keycloak administrator password'
+    required: true
+  keycloak-realm:
+    description: 'Keycloak realm'
+    required: true
+  keycloak-client-id:
+    description: 'Keycloak client ID'
+    required: true
+  keycloak-client-secret:
+    description: 'Keycloak client secret'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Create Keycloak Dockerfile
+      shell: bash
+      run: |
+        cat << EOF > Dockerfile.keycloak
+        FROM quay.io/keycloak/keycloak:latest
+        
+        ENV KC_HTTP_ENABLED=true
+        ENV KC_HEALTH_ENABLED=true
+        ENV KC_METRICS_ENABLED=true
+        ENV KC_PROXY=edge
+        ENV KC_HTTP_RELATIVE_PATH=/auth
+        
+        ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
+        CMD ["start-dev"]
+        EOF
+
+    - name: Create docker-compose.yml
+      shell: bash
+      run: |
+        cat << EOF > docker-compose.yml
+        version: '3.9'
+        services:
+          postgres:
+            image: postgres:latest
+            container_name: postgres-container
+            environment:
+              POSTGRES_USER: ${{ inputs.postgres-username }}
+              POSTGRES_PASSWORD: ${{ inputs.postgres-password }}
+              POSTGRES_DB: ${{ inputs.postgres-db }}
+            ports:
+              - "5432:5432"
+            healthcheck:
+              test: ["CMD-SHELL", "pg_isready -U ${{ inputs.postgres-username }} -d ${{ inputs.postgres-db }}"]
+              interval: 10s
+              timeout: 5s
+              retries: 5
+            volumes:
+              - ./init-keycloak-db.sh:/docker-entrypoint-initdb.d/init-keycloak-db.sh
+        
+          keycloak:
+            build:
+              context: .
+              dockerfile: Dockerfile.keycloak
+            container_name: keycloak-container
+            depends_on:
+              postgres:
+                condition: service_healthy
+            ports:
+              - "8080:8080"
+            environment:
+              KEYCLOAK_ADMIN: ${{ inputs.keycloak-admin }}
+              KEYCLOAK_ADMIN_PASSWORD: ${{ inputs.keycloak-admin-password }}
+              KC_DB: postgres
+              KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+              KC_DB_USERNAME: ${{ inputs.postgres-username }}
+              KC_DB_PASSWORD: ${{ inputs.postgres-password }}
+              KC_HOSTNAME: localhost
+              KC_HEALTH_ENABLED: "true"
+              KEYCLOAK_REALM: ${{ inputs.keycloak-realm }}
+              KEYCLOAK_RESOURCE: ${{ inputs.keycloak-client-id }}
+              KEYCLOAK_CREDENTIALS_SECRET: ${{ inputs.keycloak-client-secret }}
+            healthcheck:
+              test: ["CMD", "curl", "-f", "http://localhost:8080/auth/health/ready"]
+              interval: 10s
+              timeout: 10s
+              retries: 12
+            restart: unless-stopped
+        EOF
