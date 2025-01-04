@@ -41,9 +41,10 @@ runs:
         ENV KC_METRICS_ENABLED=true
         ENV KC_PROXY=edge
         ENV KC_HTTP_RELATIVE_PATH=/
+        ENV JAVA_OPTS_APPEND="-Xms512m -Xmx1024m"
         
         ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
-        CMD ["start-dev"]
+        CMD ["start-dev", "--optimized"]
         EOF
 
     - name: Create docker-compose.yml
@@ -91,10 +92,12 @@ runs:
               KEYCLOAK_REALM: ${{ inputs.keycloak-realm }}
               KEYCLOAK_RESOURCE: ${{ inputs.keycloak-client-id }}
               KEYCLOAK_CREDENTIALS_SECRET: ${{ inputs.keycloak-client-secret }}
+              JAVA_OPTS_APPEND: "-Xms512m -Xmx1024m"
             healthcheck:
               test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]
-              interval: 10s
+              interval: 15s
               timeout: 10s
-              retries: 12
+              retries: 20
             restart: unless-stopped
+            mem_limit: 1536m
         EOF

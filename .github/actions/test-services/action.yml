@@ -24,7 +24,7 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y postgresql-client curl
+        sudo apt-get install -y postgresql-client curl jq
 
     - name: Wait for PostgreSQL to be ready
       shell: bash
@@ -64,18 +64,33 @@ runs:
       shell: bash
       run: |
         echo "Waiting for Keycloak to be ready..."
-        for i in {1..30}; do
+        max_attempts=60  # Augmenté à 60 tentatives
+        attempt=0
+        
+        while [ $attempt -lt $max_attempts ]; do
+          attempt=$((attempt + 1))
+        
+          # Vérifier les logs toutes les 5 tentatives
+          if [ $((attempt % 5)) -eq 0 ]; then
+            echo "Current Keycloak logs:"
+            docker logs --tail 50 keycloak-container
+          fi
+        
           if curl -s -f -o /dev/null http://localhost:8080/health/ready; then
-            echo "Keycloak is ready"
+            echo "Keycloak is ready!"
             break
           fi
-          if [ $i -eq 30 ]; then
-            echo "Keycloak failed to become ready. Checking logs:"
+        
+          if [ $attempt -eq $max_attempts ]; then
+            echo "Keycloak failed to become ready after $max_attempts attempts"
+            echo "Final Keycloak logs:"
             docker logs keycloak-container
+            docker ps -a
             exit 1
           fi
-          echo "Waiting for Keycloak... Attempt $i/30"
-          sleep 2
+        
+          echo "Waiting for Keycloak... Attempt $attempt/$max_attempts"
+          sleep 5  # Augmenté à 5 secondes entre les tentatives
         done
 
     - name: Test Keycloak Health
