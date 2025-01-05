@@ -52,7 +52,7 @@ runs:
           if ! timeout 5 bash -c ">/dev/tcp/localhost/8080" 2>/dev/null; then
             echo "Port 8080 is not open yet"
             return 1
-          }
+          fi
         
           # Tenter d'obtenir l'état de santé
           health_response=$(curl -s -m 5 http://localhost:8080/health/ready || echo "failed")
