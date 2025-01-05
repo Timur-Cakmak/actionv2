@@ -10,18 +10,6 @@ permissions:
   contents: read
   packages: write
 
-#env:
-#  MASKED_PATHS: |
-#    ${{ secrets.SECRET_PATH_1 }}
-#    ${{ secrets.SECRET_PATH_2 }}
-#    ${{ secrets.SECRET_PATH_3 }}
-#    ${{ secrets.SECRET_PATH_4 }}
-#    ${{ secrets.SECRET_PATH_5 }}
-#    ${{ secrets.SECRET_PATH_6 }}
-#    ${{ secrets.SECRET_PATH_7 }}
-#    ${{ secrets.SECRET_PATH_8 }}
-#    ${{ secrets.SECRET_URL_1 }}
-
 jobs:
   tests:
     name: Run Tests with PostgreSQL and Keycloak
@@ -62,7 +50,6 @@ jobs:
         with:
           java-distribution: ${{ secrets.JAVA_DIST }}
           java-version: ${{ secrets.JAVA_VERSION }}
-#          masked-paths: ${{ env.MASKED_PATHS }}
 
       - name: Run Tests
         env:
@@ -93,7 +80,6 @@ jobs:
         with:
           java-distribution: ${{ secrets.JAVA_DIST }}
           java-version: ${{ secrets.JAVA_VERSION }}
-#          masked-paths: ${{ env.MASKED_PATHS }}
 
       - name: Build Application
         run: mvn -B clean package --file pom.xml

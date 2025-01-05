@@ -1,30 +1,30 @@
 # .github/actions/create-docker-compose/action.yml
-name: 'Create Docker Compose Configuration'
-description: 'Creates the Docker Compose configuration file'
+name: "Create Docker Compose Configuration"
+description: "Creates the Docker Compose configuration file"
 inputs:
   postgres-username:
-    description: 'PostgreSQL database username'
+    description: "PostgreSQL database username"
     required: true
   postgres-password:
-    description: 'PostgreSQL database password'
+    description: "PostgreSQL database password"
     required: true
   postgres-db:
-    description: 'PostgreSQL database name'
+    description: "PostgreSQL database name"
     required: true
   keycloak-admin:
-    description: 'Keycloak administrator username'
+    description: "Keycloak administrator username"
     required: true
   keycloak-admin-password:
-    description: 'Keycloak administrator password'
+    description: "Keycloak administrator password"
     required: true
   keycloak-realm:
-    description: 'Keycloak realm'
+    description: "Keycloak realm"
     required: true
   keycloak-client-id:
-    description: 'Keycloak client ID'
+    description: "Keycloak client ID"
     required: true
   keycloak-client-secret:
-    description: 'Keycloak client secret'
+    description: "Keycloak client secret"
     required: true
 runs:
   using: "composite"
@@ -34,7 +34,7 @@ runs:
       run: |
         cat << EOF > Dockerfile.keycloak
         FROM quay.io/keycloak/keycloak:latest
-        
+
         ENV KC_DB=postgres
         ENV KC_HTTP_ENABLED=true
         ENV KC_HEALTH_ENABLED=true
@@ -42,7 +42,7 @@ runs:
         ENV KC_PROXY=edge
         ENV KC_HTTP_RELATIVE_PATH=/
         ENV JAVA_OPTS_APPEND="-Xms512m -Xmx1024m"
-        
+
         ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
         CMD ["start-dev", "--optimized"]
         EOF
@@ -69,7 +69,7 @@ runs:
               retries: 5
             volumes:
               - ./init-keycloak-db.sh:/docker-entrypoint-initdb.d/init-keycloak-db.sh
-        
+
           keycloak:
             build:
               context: .

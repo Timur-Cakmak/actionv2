@@ -1,24 +1,16 @@
 # .github/actions/setup-java/action.yml
-
-name: 'Setup Java Environment'
-description: 'Sets up Java and masks paths'
+name: "Setup Java Environment"
+description: "Sets up Java and masks paths"
 inputs:
   java-distribution:
-    description: 'Distribution of Java to use'
+    description: "Distribution of Java to use"
     required: true
   java-version:
-    description: 'Version of Java to install'
+    description: "Version of Java to install"
     required: true
-#  masked-paths:
-#    description: 'Paths to be masked in logs for security purposes'
-#    required: true
 runs:
   using: "composite"
   steps:
-#    - name: Pre-mask Java paths
-#      shell: bash
-#      run: echo "::add-mask::${{ inputs.masked-paths }}"
-
     - name: Setup JDK
       uses: actions/setup-java@v4
       with:

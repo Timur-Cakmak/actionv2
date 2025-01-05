@@ -1,6 +1,6 @@
 # .github/actions/manage-services/action.yml
-name: 'Manage Services'
-description: 'Starts and monitors Docker Compose services'
+name: "Manage Services"
+description: "Starts and monitors Docker Compose services"
 runs:
   using: "composite"
   steps:
@@ -23,10 +23,10 @@ runs:
         echo "Waiting for services to be ready..."
         attempts=0
         max_attempts=30
-        
+
         while [ $attempts -lt $max_attempts ]; do
           echo "Checking services status... Attempt $((attempts + 1))/$max_attempts"
-        
+
           # Vérifier explicitement chaque service
           echo "Checking PostgreSQL..."
           if docker-compose exec -T postgres pg_isready 2>/dev/null; then
@@ -34,26 +34,26 @@ runs:
           else
             echo "PostgreSQL is not ready"
           fi
-        
+
           echo "Checking Keycloak..."
           if curl -s -f -o /dev/null http://localhost:8080/health/ready; then
             echo "Keycloak is responding"
           else
             echo "Keycloak is not ready"
           fi
-        
+
           if docker-compose ps | grep -q "Exit"; then
             echo "One or more services failed to start:"
             docker-compose ps
             docker-compose logs
             exit 1
           fi
-        
+
           if docker-compose ps | grep -q "healthy"; then
             echo "All services are ready!"
             break
           fi
-        
+
           attempts=$((attempts + 1))
           echo "Some services are not ready yet, waiting..."
           docker-compose logs --tail=50
