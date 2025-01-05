@@ -15,9 +15,9 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Pre-mask Java paths
-      shell: bash
-      run: echo "::add-mask::${{ inputs.masked-paths }}"
+#    - name: Pre-mask Java paths
+#      shell: bash
+#      run: echo "::add-mask::${{ inputs.masked-paths }}"
 
     - name: Setup JDK
       uses: actions/setup-java@v4
