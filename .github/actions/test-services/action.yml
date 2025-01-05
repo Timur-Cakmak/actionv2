@@ -37,6 +37,7 @@ runs:
       shell: bash
       run: |
         echo "Waiting for Keycloak to be ready..."
+        sleep 10  # Ajout d'un délai initial pour donner à Keycloak le temps de démarrer
         max_attempts=30
         attempt=0
 
