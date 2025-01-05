@@ -60,49 +60,104 @@ runs:
           exit 1
         fi
 
-    - name: Wait for Keycloak to be ready
-      shell: bash
-      run: |
-        echo "Waiting for Keycloak to be ready..."
-        max_attempts=60  # Augmenté à 60 tentatives
-        attempt=0
-        
-        while [ $attempt -lt $max_attempts ]; do
-          attempt=$((attempt + 1))
-        
-          # Vérifier les logs toutes les 5 tentatives
-          if [ $((attempt % 5)) -eq 0 ]; then
-            echo "Current Keycloak logs:"
-            docker logs --tail 50 keycloak-container
-          fi
-        
-          if curl -s -f -o /dev/null http://localhost:8080/health/ready; then
-            echo "Keycloak is ready!"
-            break
-          fi
-        
-          if [ $attempt -eq $max_attempts ]; then
-            echo "Keycloak failed to become ready after $max_attempts attempts"
-            echo "Final Keycloak logs:"
-            docker logs keycloak-container
-            docker ps -a
-            exit 1
-          fi
-        
-          echo "Waiting for Keycloak... Attempt $attempt/$max_attempts"
-          sleep 5  # Augmenté à 5 secondes entre les tentatives
-        done
+    name: 'Test Services'
+    description: 'Tests if PostgreSQL and Keycloak services are running correctly'
+    inputs:
+      postgres-username:
+        description: 'PostgreSQL username for connection test'
+        required: true
+      postgres-password:
+        description: 'PostgreSQL password for connection test'
+        required: true
+      postgres-db:
+        description: 'PostgreSQL database name for connection test'
+        required: true
+      keycloak-admin:
+        description: 'Keycloak admin username for connection test'
+        required: true
+      keycloak-admin-password:
+        description: 'Keycloak admin password for connection test'
+        required: true
+    runs:
+      using: "composite"
+      steps:
+        - name: Install PostgreSQL client
+          shell: bash
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client curl jq
 
-    - name: Test Keycloak Health
-      shell: bash
-      run: |
-        echo "Testing Keycloak health..."
-        response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health/ready)
-        if [ "$response" = "200" ]; then
-          echo "Keycloak is healthy"
-        else
-          echo "Keycloak health check failed (HTTP $response)"
-          echo "Checking Keycloak logs:"
-          docker logs keycloak-container
-          exit 1
-        fi
+        # ... [Previous PostgreSQL test steps remain the same]
+
+        - name: Wait for Keycloak to be ready
+          shell: bash
+          run: |
+            echo "Waiting for Keycloak to be ready..."
+            max_attempts=60
+            attempt=0
+
+            check_keycloak_status() {
+              # Get the health status and parse it
+              local health_response
+              health_response=$(curl -s -f http://localhost:8080/health/ready)
+              if [ $? -ne 0 ]; then
+                return 1
+              }
+
+              # Check if response contains status UP
+              if echo "$health_response" | jq -e '.status == "UP"' > /dev/null; then
+                # Vérifier que la base de données est également prête
+                if echo "$health_response" | jq -e '.checks[] | select(.name == "database") | .status == "UP"' > /dev/null; then
+                  return 0
+                fi
+              fi
+              return 1
+            }
+
+            while [ $attempt -lt $max_attempts ]; do
+              attempt=$((attempt + 1))
+
+              echo "Checking Keycloak status (Attempt $attempt/$max_attempts)..."
+
+              if check_keycloak_status; then
+                echo "Keycloak is fully operational!"
+
+                # Vérification supplémentaire - test d'authentification
+                echo "Testing admin authentication..."
+                token_response=$(curl -s -X POST http://localhost:8080/realms/master/protocol/openid-connect/token \
+                  -H "Content-Type: application/x-www-form-urlencoded" \
+                  -d "client_id=admin-cli" \
+                  -d "username=${{ inputs.keycloak-admin }}" \
+                  -d "password=${{ inputs.keycloak-admin-password }}" \
+                  -d "grant_type=password")
+
+                if echo "$token_response" | jq -e '.access_token' > /dev/null; then
+                  echo "Successfully authenticated to Keycloak!"
+                  exit 0
+                else
+                  echo "Authentication test failed. Response:"
+                  echo "$token_response" | jq '.'
+                fi
+              fi
+
+              # Afficher les logs toutes les 5 tentatives
+              if [ $((attempt % 5)) -eq 0 ]; then
+                echo "Current Keycloak logs:"
+                docker logs --tail 50 keycloak-container
+              fi
+
+              # Si c'est la dernière tentative, afficher plus d'informations
+              if [ $attempt -eq $max_attempts ]; then
+                echo "Keycloak failed to become ready after $max_attempts attempts"
+                echo "Final status check response:"
+                curl -v http://localhost:8080/health/ready || true
+                echo "Full Keycloak logs:"
+                docker logs keycloak-container
+                echo "Container status:"
+                docker ps -a
+                docker stats keycloak-container --no-stream || true
+                exit 1
+              fi
+
+              sleep 5
+            done
