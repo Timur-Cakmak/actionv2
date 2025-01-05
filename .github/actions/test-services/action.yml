@@ -45,7 +45,7 @@ runs:
           attempt=$((attempt+1))
           echo "Attempt $attempt/$max_attempts: Checking Keycloak status..."
 
-          token_response=$(curl -s -X POST "http://localhost:8080/auth/realms/master/protocol/openid-connect/token" \
+          token_response=$(curl -v -s -X POST "http://localhost:8080/auth/realms/master/protocol/openid-connect/token" \
               -d "client_id=admin-cli" \
               -d "username=${{ inputs.keycloak-admin }}" \
               -d "password=${{ inputs.keycloak-admin-password }}" \
