@@ -62,7 +62,7 @@ jobs:
         with:
           java-distribution: ${{ secrets.JAVA_DIST }}
           java-version: ${{ secrets.JAVA_VERSION }}
-          masked-paths: ${{ env.MASKED_PATHS }}
+#          masked-paths: ${{ env.MASKED_PATHS }}
 
       - name: Run Tests
         env:
@@ -93,7 +93,7 @@ jobs:
         with:
           java-distribution: ${{ secrets.JAVA_DIST }}
           java-version: ${{ secrets.JAVA_VERSION }}
-          masked-paths: ${{ env.MASKED_PATHS }}
+#          masked-paths: ${{ env.MASKED_PATHS }}
 
       - name: Build Application
         run: mvn -B clean package --file pom.xml

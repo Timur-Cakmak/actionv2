@@ -9,9 +9,9 @@ inputs:
   java-version:
     description: 'Version of Java to install'
     required: true
-  masked-paths:
-    description: 'Paths to be masked in logs for security purposes'
-    required: true
+#  masked-paths:
+#    description: 'Paths to be masked in logs for security purposes'
+#    required: true
 runs:
   using: "composite"
   steps:
