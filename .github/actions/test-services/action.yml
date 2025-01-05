@@ -1,26 +1,26 @@
-name: 'Test Services'
-description: 'Tests if PostgreSQL and Keycloak services are running correctly'
+name: "Test Services"
+description: "Tests if PostgreSQL and Keycloak services are running correctly"
 
 inputs:
   postgres-username:
-    description: 'PostgreSQL username for connection test'
+    description: "PostgreSQL username for connection test"
     required: true
   postgres-password:
-    description: 'PostgreSQL password for connection test'
+    description: "PostgreSQL password for connection test"
     required: true
   postgres-db:
-    description: 'PostgreSQL database name for connection test'
+    description: "PostgreSQL database name for connection test"
     required: true
   keycloak-admin:
-    description: 'Keycloak admin username for connection test'
+    description: "Keycloak admin username for connection test"
     required: true
   keycloak-admin-password:
-    description: 'Keycloak admin password for connection test'
+    description: "Keycloak admin password for connection test"
     required: true
 
 outputs:
   status:
-    description: 'Status of the services check'
+    description: "Status of the services check"
     value: ${{ steps.check-status.outputs.status }}
 
 runs:
@@ -37,64 +37,29 @@ runs:
       shell: bash
       run: |
         echo "Waiting for Keycloak to be ready..."
-        max_attempts=60
+        max_attempts=30
         attempt=0
-        
-        check_keycloak() {
-          # Vérifier si le conteneur est en cours d'exécution
-          if ! docker ps | grep -q keycloak-container; then
-            echo "Keycloak container is not running"
-            docker ps -a | grep keycloak-container || true
-            return 1
-          fi
-        
-          # Vérifier si le port 8080 est ouvert
-          if ! timeout 5 bash -c ">/dev/tcp/localhost/8080" 2>/dev/null; then
-            echo "Port 8080 is not open yet"
-            return 1
-          fi
-        
-          # Tenter d'obtenir l'état de santé
-          health_response=$(curl -s -m 5 http://localhost:8080/health/ready || echo "failed")
-        
-          if [ "$health_response" = "failed" ]; then
-            echo "Health check failed to connect"
-            return 1
-          fi
-        
-          echo "$health_response" | jq -e '.status == "UP"' >/dev/null || {
-            echo "Keycloak reports status is not UP"
-            echo "Response: $health_response"
-            return 1
-          }
-        
-          return 0
-        }
-        
-        while [ $attempt -lt $max_attempts ]; do
-          attempt=$((attempt + 1))
-          echo "Attempt $attempt/$max_attempts:"
-        
-          if check_keycloak; then
-            echo "Keycloak is responding, testing authentication..."
-        
-            token_response=$(curl -s -m 10 -X POST http://localhost:8080/realms/master/protocol/openid-connect/token \
-              -H "Content-Type: application/x-www-form-urlencoded" \
+
+        until [ $attempt -ge $max_attempts ]
+        do
+          attempt=$((attempt+1))
+          echo "Attempt $attempt/$max_attempts: Checking Keycloak status..."
+
+          token_response=$(curl -s -X POST "http://localhost:8080/auth/realms/master/protocol/openid-connect/token" \
               -d "client_id=admin-cli" \
               -d "username=${{ inputs.keycloak-admin }}" \
               -d "password=${{ inputs.keycloak-admin-password }}" \
               -d "grant_type=password")
-        
-            if echo "$token_response" | jq -e '.access_token' >/dev/null; then
-              echo "status=success" >> $GITHUB_OUTPUT
-              echo "Keycloak is fully operational!"
-              exit 0
-            else
-              echo "Authentication failed. Response:"
-              echo "$token_response" | jq '.' || echo "$token_response"
-            fi
+
+          if echo "$token_response" | jq -e '.access_token' >/dev/null; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "Keycloak is fully operational!"
+            exit 0
+          else
+            echo "Authentication failed. Response:"
+            echo "$token_response" | jq '.' || echo "$token_response"
           fi
-        
+
           # Logs toutes les 5 tentatives ou en cas d'erreur
           if [ $((attempt % 5)) -eq 0 ] || [ "$?" -ne 0 ]; then
             echo "Current status:"
@@ -104,7 +69,7 @@ runs:
             echo "Memory usage:"
             docker stats keycloak-container --no-stream || true
           fi
-        
+
           if [ $attempt -eq $max_attempts ]; then
             echo "Keycloak failed to become ready after $max_attempts attempts"
             echo "Final container status:"
@@ -114,6 +79,6 @@ runs:
             echo "status=failure" >> $GITHUB_OUTPUT
             exit 1
           fi
-        
+
           sleep 5
         done
